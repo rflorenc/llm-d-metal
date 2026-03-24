@@ -1,21 +1,26 @@
+# EPP Deployment — replaces the kustomize-generated one (which includes
+# the UDS tokenizer sidecar we don't need for the POC).
+# Uses the ServiceAccount and Service already created by the
+# inference-gateway kustomize.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: vllm-metal-epp
-  namespace: llm-d-metal
+  name: vllm-metal-pool
   labels:
-    app: vllm-metal-epp
+    app: vllm-metal-pool
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: vllm-metal-epp
+      app: vllm-metal-pool
+      component: epp
   template:
     metadata:
       labels:
-        app: vllm-metal-epp
+        app: vllm-metal-pool
+        component: epp
     spec:
-      serviceAccountName: vllm-metal-epp
+      serviceAccountName: vllm-metal-pool
       terminationGracePeriodSeconds: 130
       containers:
       - name: epp
@@ -25,7 +30,7 @@ spec:
         - --pool-name
         - vllm-metal-pool
         - --pool-namespace
-        - llm-d-metal
+        - default
         - --v
         - "4"
         - --zap-encoder
@@ -72,19 +77,3 @@ spec:
         emptyDir: {}
       - name: uds-socket
         emptyDir: {}
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: vllm-metal-pool-epp
-  namespace: llm-d-metal
-spec:
-  selector:
-    app: vllm-metal-epp
-  ports:
-  - name: ext-proc
-    protocol: TCP
-    port: 9002
-    targetPort: 9002
-    appProtocol: http2
-  type: ClusterIP
