@@ -5,20 +5,15 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 CLUSTER_NAME="llm-d-metal"
 
-# llm-d-inference-scheduler repo (for Istio control plane + inference gateway kustomize)
-SCHEDULER_ROOT="${SCHEDULER_ROOT:-$(cd "$ROOT_DIR/../llm-d-inference-scheduler" && pwd)}"
+# llm-d-inference-scheduler remote kustomize base
+SCHEDULER_REPO="${SCHEDULER_REPO:-https://github.com/llm-d/llm-d-inference-scheduler}"
+SCHEDULER_REF="${SCHEDULER_REF:-main}"
 
 # EPP and pool naming (matches scheduler repo conventions)
 export POOL_NAME="vllm-metal-pool"
 export EPP_NAME="vllm-metal-pool"
 export EPP_IMAGE="ghcr.io/llm-d/llm-d-inference-scheduler:latest"
 export TARGET_PORTS="8000"
-
-if [ ! -d "${SCHEDULER_ROOT}" ]; then
-  echo "ERROR: llm-d-inference-scheduler repo not found at ${SCHEDULER_ROOT}"
-  echo "Clone it or set SCHEDULER_ROOT env var."
-  exit 1
-fi
 
 echo "=== Step 1: Create Kind cluster ==="
 if kind get clusters 2>/dev/null | grep -q "^${CLUSTER_NAME}$"; then
@@ -29,18 +24,18 @@ fi
 
 echo ""
 echo "=== Step 2: Install CRDs ==="
-kubectl kustomize "${SCHEDULER_ROOT}/deploy/components/crds-gateway-api" \
+kubectl kustomize "${SCHEDULER_REPO}//deploy/components/crds-gateway-api?ref=${SCHEDULER_REF}" \
   | kubectl apply --server-side --force-conflicts -f -
 
-kubectl kustomize "${SCHEDULER_ROOT}/deploy/components/crds-gie" \
+kubectl kustomize "${SCHEDULER_REPO}//deploy/components/crds-gie?ref=${SCHEDULER_REF}" \
   | kubectl apply --server-side --force-conflicts -f -
 
-kubectl kustomize --enable-helm "${SCHEDULER_ROOT}/deploy/components/crds-istio" \
+kubectl kustomize --enable-helm "${SCHEDULER_REPO}//deploy/components/crds-istio?ref=${SCHEDULER_REF}" \
   | kubectl apply --server-side --force-conflicts -f -
 
 echo ""
 echo "=== Step 3: Deploy Istio control plane (llm-d-gateway revision) ==="
-kubectl kustomize "${SCHEDULER_ROOT}/deploy/components/istio-control-plane" \
+kubectl kustomize "${SCHEDULER_REPO}//deploy/components/istio-control-plane?ref=${SCHEDULER_REF}" \
   | kubectl apply --server-side --force-conflicts -f -
 
 echo "Waiting for Istiod to be ready..."
@@ -75,7 +70,7 @@ echo ""
 echo "=== Step 8: Deploy inference gateway (RBAC, Service, InferencePool, HTTPRoute) ==="
 # Use the scheduler repo's kustomize for the inference-gateway component,
 # but skip the Deployment (we deploy our own EPP without the UDS tokenizer).
-kubectl kustomize "${SCHEDULER_ROOT}/deploy/components/inference-gateway" \
+kubectl kustomize "${SCHEDULER_REPO}//deploy/components/inference-gateway?ref=${SCHEDULER_REF}" \
   | envsubst '${POOL_NAME} ${EPP_NAME} ${EPP_IMAGE} ${TARGET_PORTS}' \
   | kubectl apply -f - 2>&1 || true
 # The above may fail on the Gateway (missing gatewayClassName) — that's expected,
