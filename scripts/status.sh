@@ -1,23 +1,33 @@
 #!/bin/bash
 set -eu -o pipefail
 
-NAMESPACE="llm-d-metal"
+echo "=== Pods (default namespace) ==="
+kubectl get pods -o wide
 
-echo "=== Pods ==="
-kubectl get pods -n "${NAMESPACE}" -o wide
+echo ""
+echo "=== Pods (llm-d-istio-system) ==="
+kubectl get pods -n llm-d-istio-system -o wide 2>/dev/null || echo "No Istio namespace"
 
 echo ""
 echo "=== Gateway ==="
-kubectl get gateway -n "${NAMESPACE}" -o wide 2>/dev/null || echo "No gateways found"
+kubectl get gateway -o wide 2>/dev/null || echo "No gateways found"
 
 echo ""
 echo "=== HTTPRoute ==="
-kubectl get httproute -n "${NAMESPACE}" -o wide 2>/dev/null || echo "No httproutes found"
+kubectl get httproute -o wide 2>/dev/null || echo "No httproutes found"
 
 echo ""
 echo "=== InferencePool ==="
-kubectl get inferencepool -n "${NAMESPACE}" -o wide 2>/dev/null || echo "No inference pools found"
+kubectl get inferencepool -o wide 2>/dev/null || echo "No inference pools found"
 
 echo ""
-echo "=== Proxy logs (last 20 lines) ==="
-kubectl logs -n "${NAMESPACE}" deploy/vllm-metal-proxy --tail=20 2>/dev/null || echo "No proxy logs"
+echo "=== Services ==="
+kubectl get svc
+
+echo ""
+echo "=== EPP logs (last 10 lines) ==="
+kubectl logs -l app=vllm-metal-pool -c epp --tail=10 2>/dev/null || echo "No EPP logs"
+
+echo ""
+echo "=== Proxy logs (last 10 lines) ==="
+kubectl logs deploy/vllm-metal-proxy --tail=10 2>/dev/null || echo "No proxy logs"

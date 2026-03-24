@@ -2,25 +2,22 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: vllm-metal-proxy
-  namespace: llm-d-metal
   labels:
-    app: vllm-metal-proxy
+    app: vllm-metal-pool
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: vllm-metal-proxy
+      app: vllm-metal-pool
   template:
     metadata:
       labels:
-        app: vllm-metal-proxy
-        # Labels that InferencePool uses to discover "model server" pods
-        llm-d.ai/inference-serving: "true"
+        app: vllm-metal-pool
     spec:
       containers:
         - name: proxy
           image: vllm-metal-proxy:latest
-          imagePullPolicy: Never  # built locally, loaded into Kind
+          imagePullPolicy: Never
           ports:
             - containerPort: 8000
               name: vllm
