@@ -1,0 +1,11 @@
+# WARNING: Only use in testing/dev scenarios
+apiVersion: networking.istio.io/v1
+kind: DestinationRule
+metadata:
+  name: vllm-metal-pool-insecure-tls
+spec:
+  host: vllm-metal-pool
+  trafficPolicy:
+    tls:
+      mode: SIMPLE
+      insecureSkipVerify: true

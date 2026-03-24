@@ -26,8 +26,8 @@ kubectl get svc
 
 echo ""
 echo "=== EPP logs (last 10 lines) ==="
-kubectl logs -l app=vllm-metal-pool -c epp --tail=10 2>/dev/null || echo "No EPP logs"
+kubectl logs -l component=epp --tail=10 2>/dev/null || echo "No EPP logs"
 
 echo ""
 echo "=== Proxy logs (last 10 lines) ==="
-kubectl logs deploy/vllm-metal-proxy --tail=10 2>/dev/null || echo "No proxy logs"
+kubectl logs -l component=proxy --tail=10 2>/dev/null || echo "No proxy logs"

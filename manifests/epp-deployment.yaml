@@ -1,6 +1,4 @@
-# EPP Deployment — replaces the kustomize-generated one (which includes
-# the UDS tokenizer sidecar we don't need for the POC).
-# Uses the ServiceAccount and Service already created by the
+# Uses the SA and svc already created by the
 # inference-gateway kustomize.
 apiVersion: apps/v1
 kind: Deployment

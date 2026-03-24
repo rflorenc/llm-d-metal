@@ -4,15 +4,18 @@ metadata:
   name: vllm-metal-proxy
   labels:
     app: vllm-metal-pool
+    component: proxy
 spec:
   replicas: 1
   selector:
     matchLabels:
       app: vllm-metal-pool
+      component: proxy
   template:
     metadata:
       labels:
         app: vllm-metal-pool
+        component: proxy
     spec:
       containers:
         - name: proxy

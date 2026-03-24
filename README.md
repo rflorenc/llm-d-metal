@@ -17,23 +17,31 @@ Istio runs the `llm-d-gateway` revision with `ENABLE_GATEWAY_API_INFERENCE_EXTEN
 
 - macOS on Apple Silicon (M1+)
 - [vllm-metal](https://github.com/vllm-project/vllm-metal) installed and working
-- Docker Desktop, [kind](https://kind.sigs.k8s.io/), [kubectl](https://kubernetes.io/docs/tasks/tools/), [envsubst](https://www.gnu.org/software/gettext/) (`brew install gettext`)
-- [llm-d-inference-scheduler](https://github.com/llm-d/llm-d-inference-scheduler) cloned as sibling dir
+- [Docker Desktop](https://www.docker.com/products/docker-desktop/) (for Kind)
+
+Install the CLI tools:
+
+```bash
+brew install kind kubectl
+```
+
+CRDs and the Istio control plane are fetched from [llm-d-inference-scheduler](https://github.com/llm-d/llm-d-inference-scheduler)
+
 
 ## Quick Start
 
 ```bash
-# 1. Start vllm-metal natively (separate terminal)
+# 1. separate terminal start vllm-metal natively 
 GLOO_SOCKET_IFNAME=lo0 vllm serve HuggingFaceTB/SmolLM2-135M-Instruct
 
-# 2. Deploy the full llm-d stack in Kind
+# 2. deploy the full llm-d stack in Kind
 ./scripts/setup.sh
 
-# 3. Test
+# 3. test
 ./scripts/test.sh
 ```
 
-## Testing the traffic flow
+## Traffic flow
 
 Send a request through the gateway and trace it through each component.
 
@@ -99,19 +107,6 @@ curl -s http://localhost:19090/metrics | grep inference_pool_ready_pods
 # inference_pool_ready_pods{name="vllm-metal-pool"} 1
 ```
 
-**Per-pod queue size** — request queue depth per backend endpoint:
-
-```bash
-curl -s http://localhost:19090/metrics | grep inference_pool_per_pod_queue_size
-```
-
-**KV cache utilization** — average across all backends (requires vllm-metal
-to expose cache metrics):
-
-```bash
-curl -s http://localhost:19090/metrics | grep inference_pool_average_kv_cache_utilization
-```
-
 ### Verify ext-proc is in the path
 
 Send a request and confirm the request count increases:
@@ -125,33 +120,14 @@ curl -s http://localhost:8080/v1/chat/completions \
   -H "Content-Type: application/json" \
   -d '{"model":"HuggingFaceTB/SmolLM2-135M-Instruct","messages":[{"role":"user","content":"hello"}],"max_tokens":8}' > /dev/null
 
-# After — count should have increased by 1
+# count should have increased by 1 ...
 curl -s http://localhost:19090/metrics | grep inference_objective_request_total
 ```
 
 The `./scripts/test.sh` script automates this check.
 
-## Directory layout
-
-```
-├── kind-config.yaml              # Kind cluster (NodePort 8080→30080)
-├── proxy/
-│   ├── Dockerfile                # nginx alpine
-│   └── nginx.conf                # proxy_pass → host.docker.internal:8000
-├── manifests/
-│   ├── vllm-metal-proxy.yaml     # Proxy Deployment (labeled for InferencePool)
-│   ├── epp-config.yaml           # EPP scheduling plugins (ConfigMap)
-│   └── epp-deployment.yaml       # EPP without UDS tokenizer sidecar
-└── scripts/
-    ├── setup.sh                  # Full cluster + deploy
-    ├── test.sh                   # End-to-end + ext-proc verification
-    ├── status.sh                 # Quick status check
-    └── teardown.sh               # Cleanup
-```
-
 ## Notes
 
 - Gateway, HTTPRoute, InferencePool, and EPP RBAC are sourced from
   `llm-d-inference-scheduler/deploy/components/` via kustomize.
-- UDS tokenizer sidecar is omitted — prefix-cache scoring won't work,
-  but load-balanced routing does.
+- UDS tokenizer sidecar is omitted so prefix-cache scoring likely won't work, but load-balanced routing does.

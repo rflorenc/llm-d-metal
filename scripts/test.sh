@@ -4,20 +4,26 @@ set -eu -o pipefail
 MODEL="HuggingFaceTB/SmolLM2-135M-Instruct"
 EPP_POD=$(kubectl get pods -l component=epp -o jsonpath='{.items[0].metadata.name}')
 
-# Clean up any stale port-forwards on exit
+# Clean up stale port-fwds on exit
 cleanup() { kill $(jobs -p) 2>/dev/null || true; }
 trap cleanup EXIT
 
-echo "=== 1. Checking vllm-metal is reachable from proxy ==="
-kubectl exec deploy/vllm-metal-proxy -- \
-  wget -qO- http://host.docker.internal:8000/health || {
-    echo "FAIL: Cannot reach vllm-metal. Is it running?"
-    exit 1
-  }
-echo "OK"
+echo "1. Checking vllm-metal is reachable from proxy ==="
+PROXY_POD=$(kubectl get pods -l component=proxy -o jsonpath='{.items[0].metadata.name}')
+kubectl port-forward "$PROXY_POD" 19080:8000 &
+PF_PROXY_PID=$!
+sleep 2
+if curl -sf --max-time 5 http://localhost:19080/health > /dev/null 2>&1; then
+  echo "OK"
+else
+  echo "FAIL: Cannot reach vllm-metal through proxy. Is it running?"
+  echo "  GLOO_SOCKET_IFNAME=lo0 vllm serve ${MODEL}"
+  exit 1
+fi
+kill $PF_PROXY_PID 2>/dev/null || true
 
 echo ""
-echo "=== 2. Get EPP request count before test ==="
+echo "2. Get EPP request count before test ==="
 kubectl port-forward "$EPP_POD" 19090:9090 &
 PF_METRICS_PID=$!
 sleep 2
@@ -36,7 +42,7 @@ echo "Requests before: ${BEFORE}"
 kill $PF_METRICS_PID 2>/dev/null || true
 
 echo ""
-echo "=== 3. Send request through the gateway ==="
+echo "3. Send request through the gateway ==="
 RESPONSE=$(curl -s --max-time 15 http://localhost:8080/v1/chat/completions \
   -H "Content-Type: application/json" \
   -d "{
@@ -55,7 +61,7 @@ else
 fi
 
 echo ""
-echo "=== 4. Verify EPP processed the request (ext-proc proof) ==="
+echo "4. Verify EPP processed the request (ext-proc proof) ==="
 kubectl port-forward "$EPP_POD" 19091:9090 &
 PF_METRICS_PID=$!
 sleep 2
@@ -93,5 +99,5 @@ else
 fi
 
 echo ""
-echo "=== Full path verified ==="
+echo "Full path verified ==="
 echo "curl :8080 -> Envoy -> ext-proc -> EPP -> proxy pod -> vllm-metal (Metal GPU)"
