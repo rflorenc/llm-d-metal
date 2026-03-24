@@ -8,7 +8,7 @@ EPP_POD=$(kubectl get pods -l component=epp -o jsonpath='{.items[0].metadata.nam
 cleanup() { kill $(jobs -p) 2>/dev/null || true; }
 trap cleanup EXIT
 
-echo "=== 1. Checking vllm-metal is reachable from proxy ==="
+echo "=== 1. Checking vllm-metal is reachable from proxy"
 kubectl exec deploy/vllm-metal-proxy -- \
   wget -qO- http://host.docker.internal:8000/health || {
     echo "FAIL: Cannot reach vllm-metal. Is it running?"
@@ -17,7 +17,7 @@ kubectl exec deploy/vllm-metal-proxy -- \
 echo "OK"
 
 echo ""
-echo "=== 2. Get EPP request count before test ==="
+echo "=== 2. Get EPP request count before test"
 kubectl port-forward "$EPP_POD" 19090:9090 &
 PF_METRICS_PID=$!
 sleep 2
@@ -36,7 +36,7 @@ echo "Requests before: ${BEFORE}"
 kill $PF_METRICS_PID 2>/dev/null || true
 
 echo ""
-echo "=== 3. Send request through the gateway ==="
+echo "=== 3. Send request through the gateway"
 RESPONSE=$(curl -s --max-time 15 http://localhost:8080/v1/chat/completions \
   -H "Content-Type: application/json" \
   -d "{
@@ -55,7 +55,7 @@ else
 fi
 
 echo ""
-echo "=== 4. Verify EPP processed the request (ext-proc proof) ==="
+echo "=== 4. Verify EPP (ext-proc) processed the request"
 kubectl port-forward "$EPP_POD" 19091:9090 &
 PF_METRICS_PID=$!
 sleep 2
@@ -93,5 +93,5 @@ else
 fi
 
 echo ""
-echo "=== Full path verified ==="
-echo "curl :8080 -> Envoy -> ext-proc -> EPP -> proxy pod -> vllm-metal (Metal GPU)"
+echo "=== Full path verified"
+echo "curl :8080 -> Envoy -> ext-proc -> EPP -> proxy pod -> vllm-metal"
