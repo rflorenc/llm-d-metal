@@ -1,0 +1,10 @@
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+name: llm-d-metal
+nodes:
+  - role: control-plane
+    extraPortMappings:
+      # Gateway listener — access via localhost:8080
+      - containerPort: 30080
+        hostPort: 8080
+        protocol: TCP
